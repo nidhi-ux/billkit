@@ -3,12 +3,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BillKit – GST Invoice Maker</title>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--tx:#1a1d23;--mu:#6b7280;--bd:#e3e6ea;--ac:#0f766e;--ac2:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1b1f26;--tx:#eceff3;--mu:#98a1ae;--bd:#2c323b;--ac:#2dd4bf;--ac2:#04211e}}
-:root[data-theme="dark"]{--bg:#111418;--card:#1b1f26;--tx:#eceff3;--mu:#98a1ae;--bd:#2c323b;--ac:#2dd4bf;--ac2:#04211e}
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1a1d23;--mu:#6b7280;--bd:#e3e6ea;--ac:#0f766e;--ac2:#fff;--er:#b91c1c}
+@media(prefers-color-scheme:dark){:root{--bg:#111418;--card:#1b1f26;--tx:#eceff3;--mu:#98a1ae;--bd:#2c323b;--ac:#2dd4bf;--ac2:#04211e;--er:#f87171}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 .w{max-width:900px;margin:0 auto;padding:16px}
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap}
 h1{font-size:20px;margin:0}h1 span{color:var(--ac)}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
 h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em;color:var(--mu)}
@@ -18,18 +17,29 @@ input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--bd);bor
 button{padding:9px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;cursor:pointer}
 button.p{background:var(--ac);color:var(--ac2);border-color:var(--ac);font-weight:600}
 .sc{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:560px}
-th{text-align:left;font-size:12px;color:var(--mu);padding:4px}td{padding:4px}
-td input{min-width:60px}.r{text-align:right}
+th{text-align:left;font-size:12px;color:var(--mu);padding:4px}td{padding:4px}td input{min-width:60px}.r{text-align:right}
 .tot{margin-left:auto;max-width:280px}.tot div{display:flex;justify-content:space-between;padding:3px 0}
 .tot .b{font-weight:700;font-size:17px;border-top:1px solid var(--bd);margin-top:4px;padding-top:6px}
 .bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--bd)}
-.note{font-size:13px;color:var(--mu)}.pro{background:var(--ac);color:var(--ac2);padding:2px 8px;border-radius:99px;font-size:12px}
-#pv{display:none}
+.note{font-size:13px;color:var(--mu)}.err{color:var(--er);font-size:13px}
+.pro{background:var(--ac);color:var(--ac2);padding:2px 8px;border-radius:99px;font-size:12px}
+#auth{max-width:380px;margin:8vh auto}#auth input{margin-bottom:10px}#auth .bar{margin-top:0}
+#app,#pv{display:none}
 @media print{body{background:#fff;color:#000}.w>*:not(#pv){display:none!important}#pv{display:block!important;color:#000}}
 #pv table{min-width:0}#pv th,#pv td{border-bottom:1px solid #ccc;padding:6px;color:#000}
 </style></head><body><div class="w">
-<header><h1>Bill<span>Kit</span> 🧾</h1><span class="note" id="plan"></span></header>
+
+<div id="auth" class="card">
+<h1>Bill<span>Kit</span> 🧾</h1><p class="note">GST invoices in 30 seconds. Sign in to save and sync your invoices.</p>
+<label>Email</label><input id="em" type="email" autocomplete="email">
+<label>Password (min 6 characters)</label><input id="pw" type="password" autocomplete="current-password">
+<div class="bar"><button class="p" onclick="emailAuth(false)">Sign in</button><button onclick="emailAuth(true)">Create account</button></div>
+<div class="bar"><button onclick="googleAuth()" style="width:100%">Continue with Google</button></div>
+<p class="err" id="aerr"></p></div>
+
+<div id="app">
+<header><h1>Bill<span>Kit</span> 🧾</h1><span class="note"><span id="plan"></span> · <span id="who"></span> <button onclick="logout()">Log out</button></span></header>
 
 <div class="card"><h2>Your business</h2><div class="g">
 <div><label>Business name</label><input id="sn"></div>
@@ -50,36 +60,62 @@ td input{min-width:60px}.r{text-align:right}
 <p class="note" id="msg"></p></div>
 
 <div class="card"><h2>Saved invoices</h2><div id="list"></div>
-<p class="note">Free plan: 5 invoices per month. <b>Pro ₹199/month</b>: unlimited, logo, client book, WhatsApp share.</p>
+<p class="note">Free plan: 5 invoices per month. <b>Pro ₹199/month</b>: unlimited invoices, logo, client book, WhatsApp share.</p>
 <button class="p" onclick="upgrade()">Upgrade to Pro</button></div>
+</div>
 <div id="pv"></div></div>
-<script>
-const FREE=5,PAY_LINK="";/* paste your Razorpay Payment Link here */
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getAuth,onAuthStateChanged,signInWithPopup,GoogleAuthProvider,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import{getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const fb=initializeApp({apiKey:"AIzaSyCCVlrNnH__a5PzuD3EIs_VkefAH-gjkTo",authDomain:"billkit-ed508.firebaseapp.com",projectId:"billkit-ed508",storageBucket:"billkit-ed508.firebasestorage.app",messagingSenderId:"400997046069",appId:"1:400997046069:web:bb8279626db6dfe04f1e7c"});
+const auth=getAuth(fb),fs=getFirestore(fb);
+const FREE=5,PAY_LINK="";/* paste your Razorpay payment link here (Phase 3) */
 const $=id=>document.getElementById(id);
-let items=[],db={invoices:[],profile:{},pro:false};
-function load(){try{const s=localStorage.getItem("billkit");if(s)db=Object.assign(db,JSON.parse(s))}catch(e){}}
-function persist(){try{localStorage.setItem("billkit",JSON.stringify(db))}catch(e){}}
+let user=null,items=[],invoices=[],pro=false,unsub=null;
+
 const inr=n=>"₹"+(n||0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
 const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function addRow(r){items.push(r||{d:"",q:1,r:0,g:18});drawRows()}
-function drawRows(){$("rows").innerHTML=items.map((x,i)=>`<tr><td><input value="${esc(x.d)}" oninput="items[${i}].d=this.value;calc()"></td><td><input type="number" value="${x.q}" oninput="items[${i}].q=+this.value;calc()"></td><td><input type="number" value="${x.r}" oninput="items[${i}].r=+this.value;calc()"></td><td><select onchange="items[${i}].g=+this.value;calc()">${[0,5,12,18,28].map(g=>`<option ${g==x.g?"selected":""}>${g}</option>`).join("")}</select></td><td class="r">${inr(x.q*x.r)}</td><td><button onclick="items.splice(${i},1);drawRows()">✕</button></td></tr>`).join("");calc()}
+const aerr=e=>{const m=e.code||e.message||"Error";$("aerr").textContent=({"auth/invalid-credential":"Wrong email or password.","auth/email-already-in-use":"Account already exists. Sign in instead.","auth/weak-password":"Password must be at least 6 characters.","auth/invalid-email":"Enter a valid email.","auth/unauthorized-domain":"This domain is not authorized in Firebase Auth settings."})[m]||m};
+
+window.emailAuth=async create=>{$("aerr").textContent="";try{const f=create?createUserWithEmailAndPassword:signInWithEmailAndPassword;await f(auth,$("em").value.trim(),$("pw").value)}catch(e){aerr(e)}};
+window.googleAuth=async()=>{$("aerr").textContent="";try{await signInWithPopup(auth,new GoogleAuthProvider())}catch(e){aerr(e)}};
+window.logout=()=>signOut(auth);
+
+onAuthStateChanged(auth,async u=>{
+ user=u;if(unsub){unsub();unsub=null}
+ $("auth").style.display=u?"none":"block";$("app").style.display=u?"block":"none";
+ if(!u)return;
+ $("who").textContent=u.email;
+ try{const p=await getDoc(doc(fs,"users",u.uid,"meta","profile"));const d=p.exists()?p.data():{};$("sn").value=d.sn||"";$("sg").value=d.sg||"";$("sa").value=d.sa||""}catch(e){}
+ try{const pl=await getDoc(doc(fs,"plans",u.uid));pro=pl.exists()&&pl.data().plan=="pro"}catch(e){pro=false}
+ unsub=onSnapshot(query(collection(fs,"users",u.uid,"invoices"),orderBy("saved","desc")),s=>{invoices=s.docs.map(d=>({id:d.id,...d.data()}));list()},e=>$("msg").textContent="Could not load invoices: "+e.message);
+ reset();
+});
+
+window.addRow=r=>{items.push(r||{d:"",q:1,r:0,g:18});drawRows()};
+window.drawRows=drawRows;window.setItem=(i,k,v)=>{items[i][k]=v;calc()};window.delItem=i=>{items.splice(i,1);drawRows()};
+function drawRows(){$("rows").innerHTML=items.map((x,i)=>`<tr><td><input value="${esc(x.d)}" oninput="setItem(${i},'d',this.value)"></td><td><input type="number" value="${x.q}" oninput="setItem(${i},'q',+this.value)"></td><td><input type="number" value="${x.r}" oninput="setItem(${i},'r',+this.value)"></td><td><select onchange="setItem(${i},'g',+this.value)">${[0,5,12,18,28].map(g=>`<option ${g==x.g?"selected":""}>${g}</option>`).join("")}</select></td><td class="r">${inr(x.q*x.r)}</td><td><button onclick="delItem(${i})">✕</button></td></tr>`).join("");calc()}
 function totals(){let sub=0,tax=0;items.forEach(x=>{const a=x.q*x.r;sub+=a;tax+=a*x.g/100});return{sub,tax,total:sub+tax}}
 function calc(){const t=totals(),inter=$("ty").value=="inter";
 $("tot").innerHTML=`<div><span>Subtotal</span><span>${inr(t.sub)}</span></div>`+(inter?`<div><span>IGST</span><span>${inr(t.tax)}</span></div>`:`<div><span>CGST</span><span>${inr(t.tax/2)}</span></div><div><span>SGST</span><span>${inr(t.tax/2)}</span></div>`)+`<div class="b"><span>Total</span><span>${inr(t.total)}</span></div>`;
 [...document.querySelectorAll("#rows tr")].forEach((tr,i)=>{if(items[i])tr.children[4].textContent=inr(items[i].q*items[i].r)});preview()}
-function cur(){return{no:$("no").value,dt:$("dt").value,cn:$("cn").value,cg:$("cg").value,ty:$("ty").value,nt:$("nt").value,items:JSON.parse(JSON.stringify(items)),sn:$("sn").value,sg:$("sg").value,sa:$("sa").value}}
+function cur(){return{no:$("no").value.trim(),dt:$("dt").value,cn:$("cn").value,cg:$("cg").value,ty:$("ty").value,nt:$("nt").value,items:JSON.parse(JSON.stringify(items)),sn:$("sn").value,sg:$("sg").value,sa:$("sa").value}}
 function preview(){const v=cur(),t=totals(),i=v.ty=="inter";
 $("pv").innerHTML=`<h1>TAX INVOICE</h1><p><b>${esc(v.sn)}</b><br>GSTIN: ${esc(v.sg)}<br>${esc(v.sa)}</p><p>Invoice #${esc(v.no)} &nbsp; Date: ${esc(v.dt)}<br>Bill to: <b>${esc(v.cn)}</b> ${esc(v.cg)}</p><table><tr><th>Item</th><th>Qty</th><th>Rate</th><th>GST%</th><th>Amount</th></tr>${v.items.map(x=>`<tr><td>${esc(x.d)}</td><td>${x.q}</td><td>${inr(x.r)}</td><td>${x.g}</td><td>${inr(x.q*x.r)}</td></tr>`).join("")}</table><p style="text-align:right">Subtotal ${inr(t.sub)}<br>${i?"IGST "+inr(t.tax):"CGST "+inr(t.tax/2)+"<br>SGST "+inr(t.tax/2)}<br><b>Total ${inr(t.total)}</b></p><p>${esc(v.nt)}</p>`}
-function monthCount(){const m=new Date().toISOString().slice(0,7);return db.invoices.filter(x=>x.saved.startsWith(m)).length}
-function save(){const v=cur();if(!v.cn||!items.length){$("msg").textContent="Add a client and at least one item.";return}
-db.profile={sn:v.sn,sg:v.sg,sa:v.sa};const ex=db.invoices.findIndex(x=>x.no==v.no);
-if(ex<0&&!db.pro&&monthCount()>=FREE){$("msg").textContent="Free limit reached. Upgrade to Pro for unlimited invoices.";return}
-v.saved=new Date().toISOString();v.total=totals().total;if(ex>=0)db.invoices[ex]=v;else db.invoices.unshift(v);persist();$("msg").textContent="Saved ✓";list()}
-function list(){$("plan").innerHTML=db.pro?'<span class="pro">PRO</span>':`Free: ${monthCount()}/${FREE} this month`;
-$("list").innerHTML=db.invoices.length?db.invoices.map((x,i)=>`<div class="li"><span>#${esc(x.no)} · ${esc(x.cn)} · ${inr(x.total)}</span><span><button onclick="openInv(${i})">Open</button> <button onclick="db.invoices.splice(${i},1);persist();list()">Delete</button></span></div>`).join(""):'<p class="note">Nothing saved yet.</p>'}
-function openInv(i){const v=db.invoices[i];$("no").value=v.no;$("dt").value=v.dt;$("cn").value=v.cn;$("cg").value=v.cg;$("ty").value=v.ty;$("nt").value=v.nt;items=v.items;drawRows();window.scrollTo(0,0)}
-function reset(){items=[];$("cn").value=$("cg").value=$("nt").value="";$("no").value="INV-"+String(db.invoices.length+1).padStart(3,"0");$("dt").value=new Date().toISOString().slice(0,10);addRow();$("msg").textContent=""}
-function upgrade(){if(PAY_LINK)window.open(PAY_LINK,"_blank");else $("msg").textContent="Demo: set PAY_LINK in the code to your Razorpay payment link to accept real payments."}
+const monthCount=()=>{const m=new Date().toISOString().slice(0,7);return invoices.filter(x=>(x.saved||"").startsWith(m)).length};
+window.save=async()=>{const v=cur();if(!v.cn||!items.length||!v.no){$("msg").textContent="Add an invoice number, client and at least one item.";return}
+ const id=v.no.replace(/[\/\s.#$\[\]]/g,"-"),exists=invoices.some(x=>x.id==id);
+ if(!exists&&!pro&&monthCount()>=FREE){$("msg").textContent="Free limit reached (5/month). Upgrade to Pro for unlimited invoices.";return}
+ v.saved=new Date().toISOString();v.total=totals().total;
+ try{await setDoc(doc(fs,"users",user.uid,"invoices",id),v);await setDoc(doc(fs,"users",user.uid,"meta","profile"),{sn:v.sn,sg:v.sg,sa:v.sa});$("msg").textContent="Saved ✓"}catch(e){$("msg").textContent="Save failed: "+e.message}};
+function list(){$("plan").innerHTML=pro?'<span class="pro">PRO</span>':`Free: ${monthCount()}/${FREE} this month`;
+$("list").innerHTML=invoices.length?invoices.map((x,i)=>`<div class="li"><span>#${esc(x.no)} · ${esc(x.cn)} · ${inr(x.total)}</span><span><button onclick="openInv(${i})">Open</button> <button onclick="delInv(${i})">Delete</button></span></div>`).join(""):'<p class="note">Nothing saved yet.</p>'}
+window.openInv=i=>{const v=invoices[i];$("no").value=v.no;$("dt").value=v.dt;$("cn").value=v.cn;$("cg").value=v.cg;$("ty").value=v.ty;$("nt").value=v.nt;items=v.items;drawRows();window.scrollTo(0,0)};
+window.delInv=async i=>{if(confirm("Delete this invoice?"))await deleteDoc(doc(fs,"users",user.uid,"invoices",invoices[i].id))};
+window.reset=()=>{items=[];$("cn").value=$("cg").value=$("nt").value="";$("no").value="INV-"+String(invoices.length+1).padStart(3,"0");$("dt").value=new Date().toISOString().slice(0,10);$("msg").textContent="";addRow()};
+window.upgrade=()=>{if(PAY_LINK)window.open(PAY_LINK,"_blank");else $("msg").textContent="Payments coming soon (Phase 3)."};
 ["sn","sg","sa","no","dt","cn","cg","ty","nt"].forEach(id=>$(id).addEventListener("input",calc));
-load();$("sn").value=db.profile.sn||"";$("sg").value=db.profile.sg||"";$("sa").value=db.profile.sa||"";reset();list();
 </script></body></html>
